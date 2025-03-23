@@ -6,7 +6,7 @@ import { ArrowUpIcon, ArrowDownIcon, MinusIcon } from 'lucide-react';
 
 interface NotificationSystemProps {
   recommendations: RecommendationData[];
-  setNotifications: (count: number) => void;
+  setNotifications: React.Dispatch<React.SetStateAction<number>>;
 }
 
 const NotificationSystem = ({ recommendations, setNotifications }: NotificationSystemProps) => {
