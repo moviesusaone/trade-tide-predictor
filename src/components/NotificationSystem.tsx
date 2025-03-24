@@ -1,31 +1,67 @@
-
 import { useEffect, useState, useCallback } from 'react';
 import { toast } from 'sonner';
 import { RecommendationData } from '@/types/trading';
-import { ArrowUpIcon, ArrowDownIcon, MinusIcon } from 'lucide-react';
+import { ArrowUpIcon, ArrowDownIcon, MinusIcon, BookmarkIcon } from 'lucide-react';
 
 interface NotificationSystemProps {
   recommendations: RecommendationData[];
   setNotifications: React.Dispatch<React.SetStateAction<number>>;
 }
 
+interface SavedNotification {
+  id: string;
+  pair: string;
+  action: string;
+  currentPrice: number;
+  targetPrice: number;
+  confidence: number;
+  timestamp: string;
+  potentialProfit: string;
+}
+
 const NotificationSystem = ({ recommendations, setNotifications }: NotificationSystemProps) => {
   const [notifiedIds, setNotifiedIds] = useState<string[]>([]);
+  const [savedNotifications, setSavedNotifications] = useState<SavedNotification[]>([]);
+  const [lastNotificationTime, setLastNotificationTime] = useState<number>(0);
+  
+  const shouldSendNotification = useCallback((recommendation: RecommendationData) => {
+    if (notifiedIds.includes(recommendation.id)) {
+      return false;
+    }
+    
+    if (recommendation.confidence < 75) {
+      console.log(`Skipping notification for ${recommendation.pair} as confidence (${recommendation.confidence}%) is below threshold`);
+      return false;
+    }
+    
+    const currentTime = Date.now();
+    const timeSinceLastNotification = currentTime - lastNotificationTime;
+    if (timeSinceLastNotification < 30 * 60 * 1000) {
+      console.log(`Skipping notification as last one was shown ${Math.floor(timeSinceLastNotification/60000)} minutes ago`);
+      return false;
+    }
+    
+    const existingSimilarNotification = savedNotifications.find(
+      n => n.pair === recommendation.pair && n.action === recommendation.recommendation
+    );
+    
+    if (existingSimilarNotification) {
+      const existingTime = new Date(existingSimilarNotification.timestamp).getTime();
+      if (currentTime - existingTime < 6 * 60 * 60 * 1000) {
+        console.log(`Skipping similar notification for ${recommendation.pair} as we already have a recent one`);
+        return false;
+      }
+    }
+    
+    return true;
+  }, [notifiedIds, lastNotificationTime, savedNotifications]);
   
   const showNotification = useCallback((recommendation: RecommendationData) => {
-    if (notifiedIds.includes(recommendation.id)) {
+    if (!shouldSendNotification(recommendation)) {
       return;
     }
     
     const { pair, recommendation: action, currentPrice, targetPrice, confidence } = recommendation;
-    
-    // Only show notifications for high-confidence opportunities
-    const isProfitableOpportunity = confidence >= 70;
-    
-    if (!isProfitableOpportunity) {
-      console.log(`Skipping notification for ${pair} as confidence (${confidence}%) is below threshold`);
-      return;
-    }
     
     let icon;
     let bgColor;
@@ -49,6 +85,22 @@ const NotificationSystem = ({ recommendations, setNotifications }: NotificationS
     
     const potentialProfit = `${priceDirection}${Math.abs(parseFloat(priceDiff))}%`;
     
+    const newSavedNotification: SavedNotification = {
+      id: recommendation.id,
+      pair,
+      action,
+      currentPrice,
+      targetPrice,
+      confidence,
+      timestamp: new Date().toISOString(),
+      potentialProfit
+    };
+    
+    setSavedNotifications(prev => {
+      const updatedNotifications = [newSavedNotification, ...prev];
+      return updatedNotifications.slice(0, 20);
+    });
+    
     toast.custom((id) => (
       <div className={`rounded-lg overflow-hidden shadow-xl max-w-md w-full bg-gradient-to-r ${bgColor} backdrop-blur-md border border-white/10 animate-fade-in`}>
         <div className="px-4 py-3 flex items-center">
@@ -56,8 +108,9 @@ const NotificationSystem = ({ recommendations, setNotifications }: NotificationS
             {icon}
           </div>
           <div className="flex-1">
-            <h3 className="font-bold text-white">
+            <h3 className="font-bold text-white flex items-center">
               {action} SIGNAL: {pair}
+              <BookmarkIcon className="h-4 w-4 ml-2 text-white/70" title="Saved to important opportunities" />
             </h3>
             <p className="text-sm text-white/80">
               Current: {currentPrice.toFixed(5)} | Target: {targetPrice.toFixed(5)} ({potentialProfit})
@@ -69,58 +122,54 @@ const NotificationSystem = ({ recommendations, setNotifications }: NotificationS
         </div>
       </div>
     ), {
-      duration: 10000, // Longer duration for important signals
+      duration: 15000,
       position: 'top-right',
     });
     
     setNotifiedIds(prev => [...prev, recommendation.id]);
     setNotifications(prev => prev + 1);
+    setLastNotificationTime(Date.now());
     
-    // Play notification sound - different sound for high-confidence opportunities
     try {
-      // Use a more attention-grabbing sound for profitable opportunities
-      const soundUrl = isProfitableOpportunity 
-        ? 'https://assets.mixkit.co/active_storage/sfx/951/951-preview.mp3'  // More attention-grabbing sound
-        : 'https://assets.mixkit.co/active_storage/sfx/2869/2869-preview.mp3'; // Default sound
-      
+      const soundUrl = 'https://assets.mixkit.co/active_storage/sfx/951/951-preview.mp3';
       const audio = new Audio(soundUrl);
-      audio.volume = 0.6; // Slightly louder for important notifications
+      audio.volume = 0.7;
       audio.play();
     } catch (error) {
       console.error('Failed to play notification sound:', error);
     }
-  }, [notifiedIds, setNotifications]);
+  }, [notifiedIds, setNotifications, shouldSendNotification]);
   
   useEffect(() => {
-    // Get current hour to check if it's trading time
     const checkDailyOpportunities = () => {
       const currentHour = new Date().getHours();
-      const isMarketActiveHour = currentHour >= 8 && currentHour <= 16; // Common trading hours (8 AM - 4 PM)
+      const isMarketActiveHour = currentHour >= 8 && currentHour <= 16;
       
-      // Filter recent recommendations and only high-quality ones
-      recommendations.forEach(rec => {
-        const isRecentRec = new Date(rec.timestamp).getTime() > Date.now() - 24 * 60 * 60 * 1000; // Within last 24 hours
-        const isHighQuality = rec.confidence >= 75; // High confidence recs only
+      const highQualityRecommendations = recommendations
+        .filter(rec => rec.confidence >= 80)
+        .sort((a, b) => b.confidence - a.confidence)
+        .slice(0, 2);
+      
+      highQualityRecommendations.forEach(rec => {
+        const isRecentRec = new Date(rec.timestamp).getTime() > Date.now() - 24 * 60 * 60 * 1000;
         
-        if (isRecentRec && (isHighQuality || isMarketActiveHour)) {
+        if (isRecentRec && (rec.confidence >= 85 || isMarketActiveHour)) {
           console.log(`Processing ${rec.recommendation} recommendation for ${rec.pair} with ${rec.confidence}% confidence`);
           showNotification(rec);
         }
       });
     };
     
-    // Check immediately and then set up a daily check
     checkDailyOpportunities();
     
-    // Set up interval to check for opportunities every 3 hours during market hours
     const intervalId = setInterval(() => {
       checkDailyOpportunities();
-    }, 3 * 60 * 60 * 1000); // Every 3 hours
+    }, 3 * 60 * 60 * 1000);
     
     return () => clearInterval(intervalId);
   }, [recommendations, showNotification]);
   
-  return null; // This component doesn't render anything, it just shows notifications
+  return null;
 };
 
 export default NotificationSystem;
