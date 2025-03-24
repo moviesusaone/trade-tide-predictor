@@ -15,6 +15,7 @@ import { ar } from 'date-fns/locale';
 import { Card, CardContent } from '@/components/ui/card';
 import { Table, TableBody, TableCell, TableHeader, TableHead, TableRow } from '@/components/ui/table';
 import { toast } from 'sonner';
+import NavigationBar from '@/components/NavigationBar';
 
 const NotificationsPage = () => {
   const [notifications, setNotifications] = useState<SavedNotification[]>(getSavedNotifications());
@@ -70,6 +71,8 @@ const NotificationsPage = () => {
             عرض جميع إشعارات التداول والتوصيات التي تلقيتها
           </p>
         </motion.div>
+        
+        <NavigationBar />
         
         <Card className="mb-6">
           <CardContent className="pt-6">
