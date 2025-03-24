@@ -16,9 +16,20 @@ import { Card, CardContent } from '@/components/ui/card';
 import { Table, TableBody, TableCell, TableHeader, TableHead, TableRow } from '@/components/ui/table';
 import { toast } from 'sonner';
 import NavigationBar from '@/components/NavigationBar';
+import Header from '@/components/Header';
+import { useTheme } from 'next-themes';
 
 const NotificationsPage = () => {
   const [notifications, setNotifications] = useState<SavedNotification[]>(getSavedNotifications());
+  const { theme, setTheme } = useTheme();
+  const [mounted, setMounted] = useState(false);
+  
+  useEffect(() => {
+    setMounted(true);
+  }, []);
+
+  const isDarkMode = mounted && theme === 'dark';
+  const toggleTheme = () => setTheme(isDarkMode ? 'light' : 'dark');
   
   const deleteNotification = (id: string) => {
     setNotifications(prev => {
@@ -57,6 +68,11 @@ const NotificationsPage = () => {
   
   return (
     <div className="min-h-screen bg-gradient-to-b from-gray-50 to-gray-100 dark:from-gray-900 dark:to-gray-800">
+      <Header 
+        toggleTheme={toggleTheme} 
+        isDarkMode={isDarkMode} 
+        notifications={notifications.filter(n => !n.read).length} 
+      />
       <main className="container mx-auto px-4 pt-24 pb-12">
         <motion.div
           initial={{ opacity: 0, y: 20 }}
