@@ -3,6 +3,7 @@ import { useState, useEffect } from 'react';
 import { BellIcon, MoonIcon, SunIcon } from 'lucide-react';
 import { motion } from 'framer-motion';
 import { Button } from '@/components/ui/button';
+import { Link } from 'react-router-dom';
 
 interface HeaderProps {
   toggleTheme: () => void;
@@ -41,10 +42,14 @@ const Header = ({ toggleTheme, isDarkMode, notifications }: HeaderProps) => {
           animate={{ opacity: 1 }}
           transition={{ delay: 0.2, duration: 0.5 }}
         >
-          <span className="h-8 w-8 rounded-full bg-gradient-to-r from-blue-500 to-cyan-400 flex items-center justify-center">
-            <span className="font-bold text-white text-sm">FX</span>
-          </span>
-          <h1 className="text-xl font-bold text-gray-900 dark:text-white">TradeTide</h1>
+          <Link to="/">
+            <span className="h-8 w-8 rounded-full bg-gradient-to-r from-blue-500 to-cyan-400 flex items-center justify-center">
+              <span className="font-bold text-white text-sm">FX</span>
+            </span>
+          </Link>
+          <Link to="/">
+            <h1 className="text-xl font-bold text-gray-900 dark:text-white">TradeTide</h1>
+          </Link>
         </motion.div>
         
         <div className="flex items-center space-x-4">
@@ -53,13 +58,15 @@ const Header = ({ toggleTheme, isDarkMode, notifications }: HeaderProps) => {
             whileHover={{ scale: 1.05 }}
             whileTap={{ scale: 0.95 }}
           >
-            <Button variant="ghost" size="icon" className="relative" aria-label="Notifications">
-              <BellIcon className="h-5 w-5" />
-              {notifications > 0 && (
-                <span className="absolute -top-1 -right-1 h-4 w-4 rounded-full bg-trader-buy text-[10px] text-white flex items-center justify-center">
-                  {notifications}
-                </span>
-              )}
+            <Button variant="ghost" size="icon" className="relative" aria-label="Notifications" asChild>
+              <Link to="/notifications">
+                <BellIcon className="h-5 w-5" />
+                {notifications > 0 && (
+                  <span className="absolute -top-1 -right-1 h-4 w-4 rounded-full bg-trader-buy text-[10px] text-white flex items-center justify-center">
+                    {notifications}
+                  </span>
+                )}
+              </Link>
             </Button>
           </motion.div>
           

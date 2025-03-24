@@ -2,14 +2,16 @@
 import { useEffect, useState, useCallback } from 'react';
 import { toast } from 'sonner';
 import { RecommendationData } from '@/types/trading';
-import { ArrowUpIcon, ArrowDownIcon, MinusIcon, BookmarkIcon, BellRingIcon } from 'lucide-react';
+import { ArrowUpIcon, ArrowDownIcon, MinusIcon, BookmarkIcon, BellRingIcon, Trash2Icon } from 'lucide-react';
+import { format } from 'date-fns';
+import { ar } from 'date-fns/locale';
 
 interface NotificationSystemProps {
   recommendations: RecommendationData[];
   setNotifications: React.Dispatch<React.SetStateAction<number>>;
 }
 
-interface SavedNotification {
+export interface SavedNotification {
   id: string;
   pair: string;
   action: string;
@@ -18,12 +20,30 @@ interface SavedNotification {
   confidence: number;
   timestamp: string;
   potentialProfit: string;
+  read: boolean;
 }
+
+// Create a function to get local storage notifications
+export const getSavedNotifications = (): SavedNotification[] => {
+  const saved = localStorage.getItem('tradeTideNotifications');
+  return saved ? JSON.parse(saved) : [];
+};
+
+// Update local storage with new notifications
+export const updateSavedNotifications = (notifications: SavedNotification[]) => {
+  localStorage.setItem('tradeTideNotifications', JSON.stringify(notifications));
+};
 
 const NotificationSystem = ({ recommendations, setNotifications }: NotificationSystemProps) => {
   const [notifiedIds, setNotifiedIds] = useState<string[]>([]);
-  const [savedNotifications, setSavedNotifications] = useState<SavedNotification[]>([]);
+  const [savedNotifications, setSavedNotifications] = useState<SavedNotification[]>(getSavedNotifications());
   const [lastNotificationTime, setLastNotificationTime] = useState<number>(0);
+  
+  // Update local storage whenever savedNotifications changes
+  useEffect(() => {
+    updateSavedNotifications(savedNotifications);
+    setNotifications(savedNotifications.filter(n => !n.read).length);
+  }, [savedNotifications, setNotifications]);
   
   const shouldSendNotification = useCallback((recommendation: RecommendationData) => {
     if (notifiedIds.includes(recommendation.id)) {
@@ -98,6 +118,8 @@ const NotificationSystem = ({ recommendations, setNotifications }: NotificationS
     const priceDirection = action === 'BUY' ? '+' : action === 'SELL' ? '-' : '±';
     
     const potentialProfit = `${priceDirection}${Math.abs(parseFloat(priceDiff))}%`;
+    const currentTime = new Date();
+    const formattedTime = format(currentTime, 'yyyy-MM-dd HH:mm:ss');
     
     const newSavedNotification: SavedNotification = {
       id: recommendation.id,
@@ -106,13 +128,14 @@ const NotificationSystem = ({ recommendations, setNotifications }: NotificationS
       currentPrice,
       targetPrice,
       confidence,
-      timestamp: new Date().toISOString(),
-      potentialProfit
+      timestamp: currentTime.toISOString(),
+      potentialProfit,
+      read: false
     };
     
     setSavedNotifications(prev => {
       const updatedNotifications = [newSavedNotification, ...prev];
-      return updatedNotifications.slice(0, 20);
+      return updatedNotifications.slice(0, 50); // Keep up to 50 notifications
     });
     
     toast.custom((id) => (
@@ -133,6 +156,9 @@ const NotificationSystem = ({ recommendations, setNotifications }: NotificationS
             </p>
             <p className="text-xs text-white/70 mt-1">
               نسبة الثقة: {confidence}% - الربح المتوقع: {potentialProfit}
+            </p>
+            <p className="text-xs text-white/70 mt-1 flex items-center justify-end">
+              <span>{format(currentTime, 'dd/MM/yyyy HH:mm', { locale: ar })}</span>
             </p>
           </div>
         </div>
