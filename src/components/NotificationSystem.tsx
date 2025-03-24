@@ -124,7 +124,9 @@ const NotificationSystem = ({ recommendations, setNotifications }: NotificationS
           <div className="flex-1">
             <h3 className="font-bold text-white flex items-center">
               فرصة ممتازة: {action} {pair}
-              <BellRingIcon className="h-4 w-4 ml-2 text-white/70" title="توصية مؤكدة" />
+              <span className="ml-2 flex items-center">
+                <BellRingIcon className="h-4 w-4 text-white/70" aria-label="توصية مؤكدة" />
+              </span>
             </h3>
             <p className="text-sm text-white/80">
               السعر الحالي: {currentPrice.toFixed(5)} | الهدف: {targetPrice.toFixed(5)}
