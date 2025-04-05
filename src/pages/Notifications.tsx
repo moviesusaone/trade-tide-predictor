@@ -7,7 +7,8 @@ import {
   ArrowDownIcon, 
   MinusIcon, 
   Trash2Icon,
-  BellOffIcon
+  BellOffIcon,
+  CheckCircle2Icon
 } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { format } from 'date-fns';
@@ -18,6 +19,7 @@ import { toast } from 'sonner';
 import NavigationBar from '@/components/NavigationBar';
 import Header from '@/components/Header';
 import { useTheme } from 'next-themes';
+import { Badge } from '@/components/ui/badge';
 
 const NotificationsPage = () => {
   const [notifications, setNotifications] = useState<SavedNotification[]>(getSavedNotifications());
@@ -152,7 +154,12 @@ const NotificationsPage = () => {
                         </TableCell>
                         <TableCell>{notification.pair}</TableCell>
                         <TableCell>{notification.currentPrice.toFixed(5)}</TableCell>
-                        <TableCell>{notification.targetPrice.toFixed(5)}</TableCell>
+                        <TableCell className="flex items-center gap-2">
+                          {notification.targetPrice.toFixed(5)}
+                          {notification.targetReached && (
+                            <CheckCircle2Icon className="h-4 w-4 text-green-500" title="تم الوصول للهدف" />
+                          )}
+                        </TableCell>
                         <TableCell 
                           className={
                             notification.potentialProfit.startsWith('+') 
@@ -163,6 +170,9 @@ const NotificationsPage = () => {
                           }
                         >
                           {notification.potentialProfit}
+                          {notification.targetReached && (
+                            <Badge className="bg-green-500 ml-2 text-white">تم التحقق</Badge>
+                          )}
                         </TableCell>
                         <TableCell>{notification.confidence}%</TableCell>
                         <TableCell>

@@ -2,7 +2,15 @@
 import { useEffect, useState, useCallback } from 'react';
 import { toast } from 'sonner';
 import { RecommendationData } from '@/types/trading';
-import { ArrowUpIcon, ArrowDownIcon, MinusIcon, BookmarkIcon, BellRingIcon, Trash2Icon } from 'lucide-react';
+import { 
+  ArrowUpIcon, 
+  ArrowDownIcon, 
+  MinusIcon, 
+  BookmarkIcon, 
+  BellRingIcon, 
+  Trash2Icon, 
+  CheckCircle2Icon 
+} from 'lucide-react';
 import { format } from 'date-fns';
 import { ar } from 'date-fns/locale';
 
@@ -21,6 +29,7 @@ export interface SavedNotification {
   timestamp: string;
   potentialProfit: string;
   read: boolean;
+  targetReached?: boolean;
 }
 
 // Create a function to get local storage notifications
@@ -130,7 +139,8 @@ const NotificationSystem = ({ recommendations, setNotifications }: NotificationS
       confidence,
       timestamp: currentTime.toISOString(),
       potentialProfit,
-      read: false
+      read: false,
+      targetReached: false
     };
     
     setSavedNotifications(prev => {
@@ -182,6 +192,74 @@ const NotificationSystem = ({ recommendations, setNotifications }: NotificationS
       console.error('Failed to play notification sound:', error);
     }
   }, [notifiedIds, setNotifications, shouldSendNotification]);
+
+  // Check if target price is reached and send notification
+  const checkTargetPriceReached = useCallback((currentMarketPrice: number) => {
+    const notificationsToUpdate: SavedNotification[] = [];
+
+    savedNotifications.forEach(notification => {
+      if (!notification.targetReached) {
+        const isTargetReached = 
+          (notification.action === 'BUY' && currentMarketPrice >= notification.targetPrice) || 
+          (notification.action === 'SELL' && currentMarketPrice <= notification.targetPrice);
+        
+        if (isTargetReached) {
+          notificationsToUpdate.push({
+            ...notification,
+            targetReached: true
+          });
+
+          // Send toast notification
+          const bgColor = 'from-green-500/90 to-green-600/70';
+          toast.custom((id) => (
+            <div className={`rounded-lg overflow-hidden shadow-xl max-w-md w-full bg-gradient-to-r ${bgColor} backdrop-blur-md border border-white/10 animate-fade-in`}>
+              <div className="px-4 py-3 flex items-center">
+                <div className="h-10 w-10 rounded-full bg-white/20 flex items-center justify-center mr-3">
+                  <CheckCircle2Icon className="h-5 w-5 text-white" />
+                </div>
+                <div className="flex-1">
+                  <h3 className="font-bold text-white flex items-center">
+                    تم الوصول للسعر المستهدف: {notification.pair}
+                    <span className="ml-2 flex items-center">
+                      <CheckCircle2Icon className="h-4 w-4 text-white/70" aria-label="تم الوصول للهدف" />
+                    </span>
+                  </h3>
+                  <p className="text-sm text-white/80">
+                    السعر الحالي: {currentMarketPrice.toFixed(5)} | الهدف: {notification.targetPrice.toFixed(5)}
+                  </p>
+                  <p className="text-xs text-white/70 mt-1">
+                    توصية: {notification.action} - تحققت بنجاح!
+                  </p>
+                </div>
+              </div>
+            </div>
+          ), {
+            duration: 30000,
+            position: 'top-right',
+          });
+
+          try {
+            // Success sound for target reached
+            const successSoundUrl = 'https://assets.mixkit.co/active_storage/sfx/2877/2877-preview.mp3';
+            const audio = new Audio(successSoundUrl);
+            audio.volume = 0.9;
+            audio.play();
+          } catch (error) {
+            console.error('Failed to play target reached sound:', error);
+          }
+        }
+      }
+    });
+
+    if (notificationsToUpdate.length > 0) {
+      setSavedNotifications(prev => 
+        prev.map(notification => {
+          const updated = notificationsToUpdate.find(n => n.id === notification.id);
+          return updated || notification;
+        })
+      );
+    }
+  }, [savedNotifications]);
   
   useEffect(() => {
     const checkPremiumOpportunities = () => {
@@ -214,6 +292,11 @@ const NotificationSystem = ({ recommendations, setNotifications }: NotificationS
           console.log(`Processing premium ${bestOpportunity.recommendation} recommendation for ${bestOpportunity.pair} with ${bestOpportunity.confidence}% confidence`);
           showNotification(bestOpportunity);
         }
+
+        // Check if any target prices have been reached
+        if (premiumRecommendations.length > 0 && premiumRecommendations[0].currentPrice) {
+          checkTargetPriceReached(premiumRecommendations[0].currentPrice);
+        }
       } else {
         console.log("No premium opportunities found at this time");
       }
@@ -232,8 +315,18 @@ const NotificationSystem = ({ recommendations, setNotifications }: NotificationS
       }
     }, 24 * 60 * 60 * 1000 / 4); // Check roughly 4 times per day
     
-    return () => clearInterval(intervalId);
-  }, [recommendations, showNotification]);
+    // Set up more frequent checks for target price reached (every 5 minutes)
+    const targetCheckIntervalId = setInterval(() => {
+      if (recommendations.length > 0 && recommendations[0].currentPrice) {
+        checkTargetPriceReached(recommendations[0].currentPrice);
+      }
+    }, 5 * 60 * 1000); 
+    
+    return () => {
+      clearInterval(intervalId);
+      clearInterval(targetCheckIntervalId);
+    };
+  }, [recommendations, showNotification, checkTargetPriceReached]);
   
   return null;
 };
