@@ -157,7 +157,9 @@ const NotificationsPage = () => {
                         <TableCell className="flex items-center gap-2">
                           {notification.targetPrice.toFixed(5)}
                           {notification.targetReached && (
-                            <CheckCircle2Icon className="h-4 w-4 text-green-500" title="تم الوصول للهدف" />
+                            <div className="flex items-center">
+                              <CheckCircle2Icon className="h-4 w-4 text-green-500" />
+                            </div>
                           )}
                         </TableCell>
                         <TableCell 
