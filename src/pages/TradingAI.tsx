@@ -36,10 +36,26 @@ interface TradingRecommendation {
   created_at: string;
 }
 
+interface EurUsdData {
+  id: string;
+  date: string;
+  open_price: number;
+  high_price: number;
+  low_price: number;
+  close_price: number;
+  volume?: number;
+  change_percent?: number;
+  ma5?: number;
+  ma10?: number;
+  ma20?: number;
+  rsi?: number;
+  created_at: string;
+}
+
 const TradingAI = () => {
   const [recommendation, setRecommendation] = useState<TradingRecommendation | null>(null);
   const [loading, setLoading] = useState(false);
-  const [historicalData, setHistoricalData] = useState<any[]>([]);
+  const [historicalData, setHistoricalData] = useState<EurUsdData[]>([]);
   const { theme, setTheme } = useTheme();
   const [mounted, setMounted] = useState(false);
   
@@ -61,10 +77,13 @@ const TradingAI = () => {
         .order('created_at', { ascending: false })
         .limit(1);
 
-      if (error) throw error;
+      if (error) {
+        console.error('Error loading recommendation:', error);
+        return;
+      }
       
       if (data && data.length > 0) {
-        setRecommendation(data[0]);
+        setRecommendation(data[0] as TradingRecommendation);
       }
     } catch (error) {
       console.error('Error loading recommendation:', error);
@@ -79,8 +98,12 @@ const TradingAI = () => {
         .order('date', { ascending: false })
         .limit(7);
 
-      if (error) throw error;
-      setHistoricalData(data || []);
+      if (error) {
+        console.error('Error loading historical data:', error);
+        return;
+      }
+      
+      setHistoricalData((data as EurUsdData[]) || []);
     } catch (error) {
       console.error('Error loading historical data:', error);
     }
@@ -91,12 +114,15 @@ const TradingAI = () => {
     try {
       const { data, error } = await supabase.functions.invoke('trading-ai');
       
-      if (error) throw error;
+      if (error) {
+        console.error('Edge function error:', error);
+        throw error;
+      }
       
       if (data?.success && data?.recommendation) {
         toast.success('تم إنشاء توصية جديدة بنجاح');
-        loadLatestRecommendation();
-        loadHistoricalData();
+        await loadLatestRecommendation();
+        await loadHistoricalData();
       } else {
         throw new Error(data?.error || 'فشل في إنشاء التوصية');
       }
@@ -298,7 +324,7 @@ const TradingAI = () => {
                         <tr key={index} className="border-b">
                           <td className="p-2">{format(new Date(item.date), 'dd/MM', { locale: ar })}</td>
                           <td className="p-2 font-semibold">{item.close_price?.toFixed(5) || 'N/A'}</td>
-                          <td className={`p-2 ${item.change_percent >= 0 ? 'text-green-500' : 'text-red-500'}`}>
+                          <td className={`p-2 ${(item.change_percent ?? 0) >= 0 ? 'text-green-500' : 'text-red-500'}`}>
                             {item.change_percent ? `${item.change_percent.toFixed(2)}%` : 'N/A'}
                           </td>
                           <td className="p-2">{item.ma5?.toFixed(5) || 'N/A'}</td>
